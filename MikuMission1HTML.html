@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Missione Miku</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+        }
+        canvas {
+            display: block;
+            background: black;
+        }
+        #score {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            font-size: 28px;
+            font-family: 'Comic Sans MS', cursive, sans-serif;
+            color: #ff69b4;
+            text-shadow: 2px 2px #fff;
+            display: none;
+        }
+        #controls {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            position: absolute;
+            bottom: 100px;
+        }
+        .row {
+            display: flex;
+        }
+        .button {
+            width: 60px;
+            height: 60px;
+            margin: 5px;
+            border-radius: 5px;
+            background: #007bff;
+            color: white;
+            border: none;
+            font-size: 20px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        #startButton {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            padding: 20px 50px;
+            font-size: 24px;
+            background: #28a745;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+        }
+        #overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            font-size: 2em;
+            z-index: 20;
+        }
+        #overlay button {
+            margin-top: 20px;
+            padding: 10px 30px;
+            font-size: 20px;
+            background: #dc3545;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div id="score">Punteggio: 0</div>
+    <canvas id="gameCanvas"></canvas>
+    <div id="controls">
+        <div class="row">
+            <button class="button" id="up">▲</button>
+        </div>
+        <div class="row">
+            <button class="button" id="left">◄</button>
+            <button class="button" id="down">▼</button>
+            <button class="button" id="right">►</button>
+        </div>
+    </div>
+    <button id="startButton">Gioca</button>
+    <div id="overlay">
+        <p id="message"></p>
+        <button id="retryButton">Riprova</button>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const overlay = document.getElementById('overlay');
+        const message = document.getElementById('message');
+        const retryButton = document.getElementById('retryButton');
+        const scoreDisplay = document.getElementById('score');
+        const startButton = document.getElementById('startButton');
+
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        const backgroundImage = new Image();
+        const mikuImage = new Image();
+        const obstacleImage = new Image();
+        const protagonistImage = new Image();
+
+        // Impostare il percorso delle immagini
+        backgroundImage.src = "SfondoMiku.jpg";
+        mikuImage.src = "MikuPrt.png";
+        obstacleImage.src = "anacardi.png";
+        protagonistImage.src = "ChangPrt.png";
+
+        let player = { x: canvas.width / 2 - 25, y: canvas.height - 100, width: 50, height: 50, speed: 10 };
+        let obstacles = [];
+        let score = 0;
+        let targetScore = 10;
+        let girl = null;  // Miku
+        let gameRunning = false;
+
+        function spawnObstacle() {
+            obstacles.push({
+                x: Math.random() * (canvas.width - 50),
+                y: -50,
+                width: 50,
+                height: 50,
+                speed: Math.random() * 2 + 3
+            });
+        }
+
+        function drawBackground() {
+            if (backgroundImage.complete) {
+                ctx.drawImage(backgroundImage, 0, 0, canvas.width, canvas.height);
+            }
+        }
+
+        function drawPlayer() {
+            if (protagonistImage.complete) {
+                ctx.drawImage(protagonistImage, player.x, player.y, player.width, player.height);
+            }
+        }
+
+        function drawGirl() {
+            if (girl && mikuImage.complete) {
+                ctx.drawImage(mikuImage, girl.x, girl.y, 50, 50);
+            }
+        }
+
+        function drawObstacles() {
+            obstacles.forEach(o => {
+                if (obstacleImage.complete) {
+                    ctx.drawImage(obstacleImage, o.x, o.y, o.width, o.height);
+                }
+            });
+        }
+
+        function updateObstacles() {
+            obstacles.forEach(o => o.y += o.speed);
+            obstacles = obstacles.filter(o => o.y < canvas.height);
+        }
+
+        function checkCollisions() {
+            obstacles.forEach(o => {
+                if (
+                    player.x < o.x + o.width &&
+                    player.x + player.width > o.x &&
+                    player.y < o.y + o.height &&
+                    player.y + player.height > o.y
+                ) {
+                    gameRunning = false;
+                    overlay.style.display = 'flex';
+                    message.textContent = 'Hai perso!';
+                }
+            });
+        }
+
+        function updateScore() {
+            score++;
+            scoreDisplay.textContent = `Punteggio: ${score}`;
+            if (score >= targetScore && !girl) {
+                girl = { x: canvas.width / 2 - 25, y: 50 }; // Miku appare
+            }
+        }
+
+        function restartGame() {
+            startButton.style.display = 'block';
+            overlay.style.display = 'none';
+            scoreDisplay.style.display = 'none';
+            player = { x: canvas.width / 2 - 25, y: canvas.height - 100, width: 50, height: 50, speed: 10 };
+            obstacles = [];
+            score = 0;
+            girl = null;
+            gameRunning = false;
+        }
+
+        function startGame() {
+            startButton.style.display = 'none';
+            scoreDisplay.style.display = 'block';
+            gameRunning = true;
+            setInterval(spawnObstacle, 1000); // Spawn nuovi ostacoli ogni secondo
+            setInterval(updateScore, 1000);  // Aumenta il punteggio ogni secondo
+            gameLoop();
+        }
+
+        function gameLoop() {
+            if (!gameRunning) return;
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawBackground();
+            drawPlayer();
+            drawObstacles();
+            drawGirl();  // Disegna Miku
+            updateObstacles();
+            checkCollisions();
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        document.getElementById('up').addEventListener('click', () => player.y -= player.speed);
+        document.getElementById('down').addEventListener('click', () => player.y += player.speed);
+        document.getElementById('left').addEventListener('click', () => player.x -= player.speed);
+        document.getElementById('right').addEventListener('click', () => player.x += player.speed);
+
+        startButton.addEventListener('click', startGame);
+        retryButton.addEventListener('click', restartGame);
+    </script>
+</body>
+</html>
